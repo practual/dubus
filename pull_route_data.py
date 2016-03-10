@@ -5,6 +5,12 @@ from bs4 import BeautifulSoup
 import re
 from urllib.parse import urlparse, parse_qs
 
+import os
+os.environ.setdefault('DJANGO_SETTINGS_MODULE','dubus.settings')
+import django
+django.setup()
+from api.models import Route, Stop, RouteStop
+
 # Get all routes from mobile site
 #curl -X POST http://www.dublinbus.ie/modules/MobilePack/DBMobileFindStops.aspx/FindRouteSearchAutocomplete -H 'Content-Type: application/json; charset=UTF-8' --data '{"searchTerm":""}'
 
@@ -29,6 +35,7 @@ from urllib.parse import urlparse, parse_qs
 # all_stops will be a dict of the form {stop_number: {name:<>, latitude:<>, longitude:<>, routes:[(num, outbound/inbound)]}}
 all_routes = {}
 all_stops = {}
+
 all_routes_request = requests.post('http://www.dublinbus.ie/modules/MobilePack/DBMobileFindStops.aspx/FindRouteSearchAutocomplete',
                                    headers={'Content-Type':'application/json; charset=UTF-8'},
                                    data='{"searchTerm":""}')
@@ -40,6 +47,7 @@ for hyperlink in all_routes_soup.find_all('asp:hyperlink',onclick=True):
     route_from = m.group(3)
     all_routes[route_number] = {'from':route_from,'to':route_to,'outbound_stops':[],'inbound_stops':[]}
     print("Route {} from {} to {}".format(route_number,route_from,route_to))
+
     # Find all stops by traversing the outbound and inbound routes
     outbound_stops_request = requests.get('http://www.dublinbus.ie/DublinBus-Mobile/RTPI-Stops/',
                                           params={'routeNumber':route_number,'Towards':route_to,'From':route_from,'Direction':'O'})
@@ -78,3 +86,33 @@ for hyperlink in all_routes_soup.find_all('asp:hyperlink',onclick=True):
             all_stops[stop_number] = {'name':stop_name,'latitude':stop_latitude,'longitude':stop_longitude,'routes':[]}
             print("First instance of stop {} ({}) found, latitude {}, longitude {}.".format(stop_number,stop_name, stop_latitude, stop_longitude))
         all_stops[stop_number]['routes'].append((route_number,'I'))
+
+print("Finding any pre-existing routes that no longer exist and deleting them...")
+route_delete_return_stats = Route.objects.exclude(pk__in=all_routes.keys()).delete()
+print("Deleted {} routes.".format(route_delete_return_stats[0]))
+
+for route_num, route in all_routes.items():
+    obj, created = Route.objects.update_or_create(number=route_num,defaults={'from_stop':route['from'],'to_stop':route['to']})
+    if created:
+        print("Created new route {}".format(route_num))
+    else:
+        print("Updated existing route {}".format(route_num))
+
+print("Finding any pre-existing stops that no longer exist and deleting them...")
+stop_delete_return_stats = Stop.objects.exclude(pk__in=all_stops.keys()).delete()
+print("Delete {} stops.".format(stop_delete_return_stats[0]))
+
+for stop_num, stop_details in all_stops.items():
+    stop, created = Stop.objects.update_or_create(number=stop_num,defaults={'name':stop_details['name'],'latitude':stop_details['latitude'],'longitude':stop_details['longitude']})
+    if created:
+        print("Created new stop {}".format(stop_num))
+    else:
+        print("Updated existing stop {}".format(stop_num))
+    for route_num, direction in stop_details['routes']:
+        route = Route.objects.get(pk=route_num)
+        if direction == 'O':
+            stop_sequence_num = all_routes[route_num]['outbound_stops'].index(stop_num)
+        else:
+            stop_sequence_num = all_routes[route_num]['inbound_stops'].index(stop_num)
+        RouteStop.objects.create(route=route,stop=stop,direction=direction,stop_number=stop_sequence_num)
+        print("Linked stop {} to {} route {} in sequence {}".format(stop_num,{'O':'outbound','I':'inbound'}[direction],route_num,stop_sequence_num))
