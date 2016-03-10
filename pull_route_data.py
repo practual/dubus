@@ -36,8 +36,8 @@ all_routes_soup = BeautifulSoup(all_routes_request.json()['d'],'lxml')
 for hyperlink in all_routes_soup.find_all('asp:hyperlink',onclick=True):
     m = re.search('\'(.*)\|(.*)\|(.*)\|\'',re.sub('\\\\\'','\'',hyperlink['onclick']))
     route_number = m.group(1)
-    route_from = m.group(2)
-    route_to = m.group(3)
+    route_to = m.group(2)
+    route_from = m.group(3)
     all_routes[route_number] = {'from':route_from,'to':route_to,'outbound_stops':[],'inbound_stops':[]}
     print("Route {} from {} to {}".format(route_number,route_from,route_to))
     # Find all stops by traversing the outbound and inbound routes
