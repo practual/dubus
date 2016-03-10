@@ -3,12 +3,22 @@ from django.shortcuts import get_list_or_404, get_object_or_404
 
 from .models import Route, Stop, RouteStop
 
-def route(request, route_num):
-    route = get_object_or_404(Route,pk=route_num)
-    route_dict = {'routeNum':route.number,
-                  'fromLocation':route.from_stop,
-                  'toLocation':route.to_stop}
-    return JsonResponse(route_dict)
+def route(request, route_num=None):
+    if route_num:
+        route = get_object_or_404(Route,pk=route_num)
+        route_dict = {'routeNumber':route.number,
+                      'fromLocation':route.from_stop,
+                      'toLocation':route.to_stop}
+        return JsonResponse(route_dict)
+    else:
+        routes = get_list_or_404(Route)
+        routes_list = []
+        for route in routes:
+            routes_list.append({'routeNumber':route.number,
+                                'fromLocation':route.from_stop,
+                                'toLocation':route.to_stop})
+        # safe=False flag allows lists to be serialised as JSONs.
+        return JsonResponse(routes_list,safe=False)
 
 def route_stops(request, route_num, direction):
     route = get_object_or_404(Route,pk=route_num)
@@ -30,10 +40,10 @@ def stop(request, stop_num):
             towards = stop_route.route.to_stop
         else:
             towards = stop_route.route.from_stop
-        stop_routes_list.append({'routeNum':stop_route.route.number,
+        stop_routes_list.append({'routeNumber':stop_route.route.number,
                                  'direction':stop_route.direction,
                                  'towards':towards})
-    stop_dict = {'stopNum':stop.number,
+    stop_dict = {'stopNumber':stop.number,
                  'stopName':stop.name,
                  'latitude':stop.latitude,
                  'longitude':stop.longitude,
