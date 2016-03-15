@@ -1,3 +1,5 @@
+import requests
+from bs4 import BeautifulSoup
 from django.http import JsonResponse
 from django.shortcuts import get_list_or_404, get_object_or_404
 
@@ -49,3 +51,15 @@ def stop(request, stop_num):
                  'longitude':stop.longitude,
                  'routes':stop_routes_list}
     return JsonResponse(stop_dict)
+
+def arrivals(request, stop_num):
+    stop = get_object_or_404(Stop,pk=stop_num)
+    stop_details_request = requests.get('http://www.dublinbus.ie/DublinBus-Mobile/Real-Time-Info/',
+                                         params={'RTPISearch':'stop','stopnumber':stop_num})
+    stop_details_soup = BeautifulSoup(stop_details_request.text,'lxml')
+    arrivals_dict = {'arrivalsRetrievedTime': stop_details_soup.find(id='ctl00_BodyContents_lblDateRefreshed').string.strip(),
+                     'arrivingBuses':[]}
+    for arriving_bus_row in stop_details_soup.find(class_='results-data').tbody.find_all('tr'):
+        route_num, route_destination, wait_time = map(lambda td: td.string.strip(), arriving_bus_row.find_all('td'))
+        arrivals_dict['arrivingBuses'].append({'routeNumber':route_num,'waitTime':wait_time})
+    return JsonResponse(arrivals_dict)

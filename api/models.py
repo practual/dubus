@@ -1,4 +1,5 @@
 from django.db import models
+#from datetime import datetime
 
 class Stop(models.Model):
     number = models.CharField(max_length=4,primary_key=True)
@@ -26,3 +27,17 @@ class RouteStop(models.Model):
 
     def __str__(self):
         return "Route {} {}, stop {} ({} - {})".format(self.route.number,{'O':'outbound','I':'inbound'}[self.direction],self.stop_number,self.stop.number,self.stop.name)
+
+# Could be useful to cache the arrival data rather than send requests straight through to
+# dublinbus.ie. Depends how many requests are arriving for the same stop in the same minute,
+# since anything less frequent would still need an update from the source to avoid stale data.
+#class StopArrival(models.Model):
+#    route_stop = models.ForeignKey(RouteStop, on_delete=models.CASCADE)
+#    data_retrieved_time = models.DateTimeField()
+#    arrival_time = models.DateTimeField()
+#
+#    def __str__(self):
+#        return "Bus on route {} {} arriving at stop {} in {} minutes".format(self.route_stop.route.number,
+#                                                                             {'O':'outbound','I':'inbound'}[self.route_stop.direction],
+#                                                                             self.route_stop.stop.number,
+#                                                                             int((arrival_time - datetime.utcnow()).total_seconds() / 60))

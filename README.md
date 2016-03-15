@@ -1,5 +1,8 @@
 # Dubus: static data API for Dublin bus routes #
 ## Usage ##
+
+Unless noted otherwise, all requests should be HTTP GET without body or URL query string.
+
 ### All route details ###
     api/route/
 Returns a list of JSON objects with attributes:
@@ -31,3 +34,11 @@ where `[stop number]` is a valid value as in `stopNumber` above. Returns the det
     - `routeNumber`: as above,
     - `direction`: either 'O' for outbound or 'I' for inbound,
     - `towards`: either the `toLocation` or the `fromLocation` of the route, depending on `direction`. 
+
+### Arrival times ###
+    api/stop/[stop number]/arrivals/
+where `[stop number]` is interpreted as above. Returns the most imminent arrivals at the given stop, as a JSON object with the following attributes:
+- `arrivalsRetrievedTime`: time at which data was retrieved, in the format HH:MM,
+- `arrivingBuses`: a list of the most imminent arrivals, where each item is a JSON object with attributes:
+    - `routeNumber`: as above,
+    - `waitTime`: integer number of minutes until arrival of the bus (relative to `arrivalsRetrievedTime`), rounded down, in the format 'X mins'. If less than one minute, 'Due' is returned instead.
